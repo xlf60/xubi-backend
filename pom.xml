@@ -10,13 +10,18 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.yupi</groupId>
-    <artifactId>yubi-backend</artifactId>
+    <artifactId>xubi-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>yubi-backend</name>
+    <name>xubi-backend</name>
     <properties>
         <java.version>1.8</java.version>
     </properties>
     <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-freemarker</artifactId>
@@ -116,11 +121,13 @@
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
+
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
+            <groupId>io.github.a812086325</groupId>
+            <artifactId>xfxh-java</artifactId>
+            <version>1.0</version>
         </dependency>
+
     </dependencies>
 
     <build>

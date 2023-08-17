@@ -25,6 +25,7 @@ public class Post implements Serializable {
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
+
     /**
      * 标题
      */
