@@ -21,4 +21,5 @@
         userName,userAvatar,userRole,
         createTime,updateTime,isDelete
     </sql>
+
 </mapper>
