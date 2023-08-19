@@ -15,6 +15,10 @@ public interface ChartMapper extends BaseMapper<Chart> {
 
     List<HashMap<String, Object>> queryChartData(String querySql);
 
+    void creatChartData(String creatSql);
+
+    void insertChartData(String insertSql);
+
 }
 
 

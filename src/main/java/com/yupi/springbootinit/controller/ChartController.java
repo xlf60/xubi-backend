@@ -15,6 +15,7 @@ import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.exception.ThrowUtils;
 import com.yupi.springbootinit.manager.AiManager;
 import com.yupi.springbootinit.manager.RedisLimiterManager;
+import com.yupi.springbootinit.mapper.ChartMapper;
 import com.yupi.springbootinit.model.dto.chart.ChartAddRequest;
 import com.yupi.springbootinit.model.dto.chart.ChartEditRequest;
 import com.yupi.springbootinit.model.dto.chart.ChartQueryRequest;
@@ -29,6 +30,9 @@ import com.yupi.springbootinit.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.ibatis.session.SqlSession;
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -38,6 +42,8 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.File;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 帖子接口
@@ -59,6 +65,8 @@ public class ChartController {
     @Resource
     private UserService userService;
 
+    @Resource
+    private ChartMapper chartMapper;
     private final static Gson GSON = new Gson();
 
     // region 增删改查
@@ -275,11 +283,11 @@ public class ChartController {
         ThrowUtils.throwIf(size > ONE_MB, ErrorCode.PARAMS_ERROR, "文件超过 1MB");
         // 校验文件后缀
         String suffix = FileUtil.getSuffix(originalFilename);
-        final List<String> validFileSuffixList = Arrays.asList("png", "jpng", "svg", "webp", "jpeg");
+        final List<String> validFileSuffixList = Arrays.asList("png", "jpng", "svg", "webp", "jpeg", "xlsx");
         ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "文件格式不支持上传");
         User loginUser = userService.getLoginUser(request);
         // 限流
-        redisLimiterManager.doRateLimit("genChartByAi" + String.valueOf(loginUser.getId()));
+//        redisLimiterManager.doRateLimit("genChartByAi" + String.valueOf(loginUser.getId()));
 //        final String prompt = "你是一个数据分析师和前端开发专家，接下来我会按照以下固定格式给你提供内容：\n" +
 //                "分析需求：\n" +
 //                "{数据分析的需求或者目标}\n" +
@@ -306,6 +314,7 @@ public class ChartController {
         userInput.append("分析需求：").append("\n");
         // 拼接分析目标
         String userGoal = goal;
+        log.info("goal : {}", goal);
         if (StringUtils.isNotBlank(chartType)) {
             userGoal += "，请使用" + chartType;
         }
@@ -313,9 +322,60 @@ public class ChartController {
         userInput.append("原始数据：").append("\n");
         // 压缩后的数据
         String csvData = ExcelUtil.excelToCsv(multipartFile);
-        userInput.append("数据：").append(csvData).append("\n");
 
-        String chatResult = aiManager.doChat(biModelId, userInput.toString());
+        userInput.append("数据：").append(csvData).append("\n");
+        log.info("csvData : {}", csvData);
+
+
+
+
+        // 进行分表
+        // 根据正则提取标题(日期,用户数)
+        String regexTitle = "(.*?)(?=\\n)";
+        Pattern patternTitle = Pattern.compile(regexTitle);
+        Matcher matcherTitle = patternTitle.matcher(csvData);
+        ThrowUtils.throwIf(!matcherTitle.find(), ErrorCode.SYSTEM_ERROR, "内容格式不正确");
+        String result = matcherTitle.group(1);
+
+        // 创建SQL表
+        String[] resultTitle = result.split(",");
+
+        // 标题的长度
+        String sqlCreate = "CREATE TABLE " + "chart_" + loginUser.getId() + " (";
+        for (String s : resultTitle) {
+            sqlCreate += s + " VARCHAR(20),";
+        }
+        sqlCreate = sqlCreate.substring(0, sqlCreate.length() - 1) + ")";
+        System.out.println(sqlCreate);
+
+        String resultData = csvData.replaceFirst(result, "").trim();
+        System.out.println(resultData);
+        String[] splitData = resultData.split("\n");
+        System.out.println(Arrays.toString(splitData));
+        chartMapper.creatChartData(sqlCreate);
+
+        // 向创建的表中插入数据
+        String sql = "INSERT INTO " + "chart_" + loginUser.getId() + "(";
+        for (int i = 0; i < resultTitle.length; i++) {
+            sql += resultTitle[i] + ", ";
+        }
+        sql = sql.substring(0, sql.length() - 2) + ") VALUES (";
+        for (int i = 0; i < splitData.length; i++) {
+            String[] split = splitData[i].split(",");
+            System.out.println(Arrays.toString(split));
+            for (int j = 0; j < resultTitle.length; j++) {
+                sql += "'" + splitData[i].split(",")[j] + "',";
+            }
+            System.out.println(sql);
+            sql = sql.substring(0, sql.length() - 2) + "'),(";
+        }
+        sql = sql.substring(0, sql.length() - 2);
+        chartMapper.insertChartData(sql);
+
+//        System.out.println("sql = " + sql);
+
+//        String chatResult = aiManager.doChat(biModelId, userInput.toString());
+        String chatResult = "";
         String[] splits = chatResult.split("【【【【【");
         if (splits.length < 3) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 生成错误");
@@ -326,13 +386,16 @@ public class ChartController {
         Chart chart = new Chart();
         chart.setName(name);
         chart.setGoal(goal);
-        chart.setChartData(csvData);
+//        chart.setChartData(csvData);
         chart.setChartType(chartType);
         chart.setGenChart(genChart);
         chart.setGenResult(genResult);
         chart.setUserId(loginUser.getId());
         boolean saveResult = chartService.save(chart);
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+
+
+
         BiResponseVo biResponse = new BiResponseVo();
         biResponse.setGenChart(genChart);
         biResponse.setGenResult(genResult);

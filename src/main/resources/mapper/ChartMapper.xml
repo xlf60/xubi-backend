@@ -27,4 +27,12 @@
     <select id="queryChartData" parameterType="string" resultType="map">
         ${querySql}
     </select>
+
+    <update id="creatChartData" parameterType="java.lang.String">
+        ${creatSql}
+    </update>
+
+    <insert id="insertChartData" parameterType="java.lang.String" >
+        ${insertSql}
+    </insert>
 </mapper>
