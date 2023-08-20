@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
  * Excel 相关工具类
  */
 @Slf4j
-public class ExcelUtil {
+public class ExcelUtils {
 
     public static String excelToCsv(MultipartFile multipartFile) {
         File file = null;

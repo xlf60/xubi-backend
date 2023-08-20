@@ -32,6 +32,9 @@
         ${creatSql}
     </update>
 
+    <select id="checkChart" parameterType="java.lang.String" resultType="int">
+        SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_NAME = #{creatSql}
+    </select>
     <insert id="insertChartData" parameterType="java.lang.String" >
         ${insertSql}
     </insert>

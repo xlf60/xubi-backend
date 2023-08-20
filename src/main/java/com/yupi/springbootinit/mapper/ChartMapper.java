@@ -19,6 +19,8 @@ public interface ChartMapper extends BaseMapper<Chart> {
 
     void insertChartData(String insertSql);
 
+    Integer checkChart(String creatSql);
+
 }
 
 
