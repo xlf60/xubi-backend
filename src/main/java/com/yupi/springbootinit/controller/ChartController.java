@@ -5,10 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.gson.Gson;
 import com.yupi.springbootinit.annotation.AuthCheck;
-import com.yupi.springbootinit.common.BaseResponse;
-import com.yupi.springbootinit.common.DeleteRequest;
-import com.yupi.springbootinit.common.ErrorCode;
-import com.yupi.springbootinit.common.ResultUtils;
+import com.yupi.springbootinit.common.*;
 import com.yupi.springbootinit.constant.CommonConstant;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.exception.BusinessException;
@@ -30,7 +27,6 @@ import com.yupi.springbootinit.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.xmlbeans.impl.xb.ltgfmt.impl.CodeImpl;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -43,8 +39,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * 帖子接口
@@ -320,35 +314,35 @@ public class ChartController {
 
         // todo 建议处理任务队列满了后，抛异常的情况
         CompletableFuture.runAsync(() -> {
-            // 先修改图表任务状态为 “执行中”。等执行成功后，修改为 “已完成”、保存执行结果；执行失败后，状态修改为 “失败”，记录任务失败信息。
-            Chart updateChart = new Chart();
-            updateChart.setId(chart.getId());
-            updateChart.setStatus("running");
-            boolean b = chartService.updateById(updateChart);
-            if (!b) {
-                handleChartUpdateError(chart.getId(), "更新图表执行中状态失败");
-                return;
-            }
-            // 调用 AI
-            String result = aiManager.doChat(biModelId, userInput.toString());
-            String[] splits = result.split("【【【【【");
-            if (splits.length < 3) {
-                handleChartUpdateError(chart.getId(), "AI 生成错误");
-                return;
-            }
-            String genChart = splits[1].trim();
-            String genResult = splits[2].trim();
-            Chart updateChartResult = new Chart();
-            updateChartResult.setId(chart.getId());
-            updateChartResult.setGenChart(genChart);
-            updateChartResult.setGenResult(genResult);
-            // todo 建议定义状态为枚举值
-            updateChartResult.setStatus("succeed");
-            boolean updateResult = chartService.updateById(updateChartResult);
-            if (!updateResult) {
-                handleChartUpdateError(chart.getId(), "更新图表成功状态失败");
-            }
-        }, threadPoolExecutor)
+                    // 先修改图表任务状态为 “执行中”。等执行成功后，修改为 “已完成”、保存执行结果；执行失败后，状态修改为 “失败”，记录任务失败信息。
+                    Chart updateChart = new Chart();
+                    updateChart.setId(chart.getId());
+                    updateChart.setStatus("running");
+                    boolean b = chartService.updateById(updateChart);
+                    if (!b) {
+                        handleChartUpdateError(chart.getId(), "更新图表执行中状态失败");
+                        return;
+                    }
+                    // 调用 AI
+                    String result = aiManager.doChat(biModelId, userInput.toString());
+                    String[] splits = result.split("【【【【【");
+                    if (splits.length < 3) {
+                        handleChartUpdateError(chart.getId(), "AI 生成错误");
+                        return;
+                    }
+                    String genChart = splits[1].trim();
+                    String genResult = splits[2].trim();
+                    Chart updateChartResult = new Chart();
+                    updateChartResult.setId(chart.getId());
+                    updateChartResult.setGenChart(genChart);
+                    updateChartResult.setGenResult(genResult);
+                    // todo 建议定义状态为枚举值
+                    updateChartResult.setStatus("succeed");
+                    boolean updateResult = chartService.updateById(updateChartResult);
+                    if (!updateResult) {
+                        handleChartUpdateError(chart.getId(), "更新图表成功状态失败");
+                    }
+                }, threadPoolExecutor)
                 .exceptionally(ex -> {
                     // 处理异常
                     ThrowUtils.throwIf(ex instanceof RejectedExecutionException, ErrorCode.SYSTEM_ERROR, "问题太多，回答不过来");
@@ -432,10 +426,11 @@ public class ChartController {
         Chart chart = new Chart();
         chart.setName(name);
         chart.setGoal(goal);
-//        chart.setChartData(csvData);
+        chart.setChartData(csvData);
         chart.setChartType(chartType);
         chart.setGenChart(genChart);
         chart.setGenResult(genResult);
+        chart.setStatus("succeed");
         chart.setUserId(loginUser.getId());
         boolean saveResult = chartService.save(chart);
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");

@@ -1,4 +1,4 @@
-package com.yupi.springbootinit.controller;
+package com.yupi.springbootinit.common;
 
 import lombok.Data;
 
